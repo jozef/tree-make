@@ -19,21 +19,47 @@ BEGIN {
 exit main();
 
 sub main {
+	my @makefile_folders = (
+		File::Spec->catdir($Bin, 'tree-01', 'Folder',  'SubFolder'),
+		File::Spec->catdir($Bin, 'tree-01', 'Folder2', 'Subfolder',  'SubSubfolder'),
+		File::Spec->catdir($Bin, 'tree-01', 'Folder2', 'Subfolder2'),
+	);
+
 	my $tree_make = Tree::Make->new(
 		'base_folder' => File::Spec->catdir($Bin, 'tree-01'),
 	);
 	
 	isa_ok($tree_make, 'Tree::Make');
 	eq_or_diff(
-		[ sort map { s/.+tree-01/base_folder/; $_ } $tree_make->all_makefiles ],
-		[
-			'base_folder/Folder/SubFolder/Makefile',
-			'base_folder/Folder2/Subfolder/SubSubfolder/Makefile',
-			'base_folder/Folder2/Subfolder2/Makefile',
-		],
+		[ sort $tree_make->all_makefiles ],
+		[ sort map { File::Spec->catfile($_, 'Makefile') } @makefile_folders ],
 		'find all Makefile files',
 	);
 	
+	# run all Makefile files that touch a file and saves output
+	$tree_make->process_all_makefiles;
+	
+	my @expected_files_created = sort map {
+		File::Spec->catfile($_, 'all-run'),
+	} @makefile_folders;
+	
+	# check if the files were created
+	eq_or_diff(
+		[ map { -f $_ ? $_ : '' } @expected_files_created ],
+		[ @expected_files_created ],
+		'all Makefiles executed',
+	);
+
+	# cleanup files form previous run
+	$tree_make->process_all_makefiles('clean');
+	
+	# check if the files were cleaned
+	eq_or_diff(
+		[ map { -f $_ ? $_ : '' } @expected_files_created ],
+		[ map { '' } @expected_files_created ],
+		'all Makefiles clean executed',
+	);
+
 	return 0;
 }
 

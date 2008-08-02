@@ -11,6 +11,10 @@ my $builder = Module::Build->new(
     dist_version_from   => 'lib/Tree/Make.pm',
     requires => {
         'Class::Accessor::Fast' => 0,
+        'File::Spec'            => 0,
+        'File::Basename'        => 0,
+        'IPC::Run'              => 0,
+        'File::Slurp'           => 0,
     },
     build_requires => {
         'Test::More'  => 0,

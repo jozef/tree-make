@@ -23,8 +23,12 @@ our $VERSION = '0.01';
 
 use FindBin '$Bin';
 use File::Spec;
+use File::Basename 'dirname';
+use IPC::Run 'run';
+use File::Slurp 'write_file';
 
 use base 'Class::Accessor::Fast';
+
 
 =head1 PROPERTIES
 
@@ -99,6 +103,61 @@ sub all_makefiles {
     }
     
     return @makefiles;
+}
+
+
+=head2 process_all_makefiles(@make_args)
+
+Loop thorugh all F<Makefile>-s and execute C<< $self->run_make(@make_args) >>.
+
+=cut
+
+sub process_all_makefiles {
+    my $self = shift;
+    my @make_args = @_;
+    
+    # loop through all makefiles
+    foreach my $makefile ($self->all_makefiles) {
+        $self->run_make($makefile, @make_args);
+    }
+}
+
+
+=head2 run_make($makefile, @make_args)
+
+Change to folder where C<$makefile> is located and runs
+`make @make_args` in it. The stderr and stdout goest to
+F<Makefile.output>. If the make exit value is non zero writes
+exit value to F<failure> file.
+
+=cut
+
+sub run_make {
+    my $self      = shift;
+    my $makefile  = shift;
+    my @make_args = @_;
+    
+    my $makefile_folder = dirname($makefile);
+    chdir($makefile_folder);
+    
+    my $makefile_output_filename = 'Makefile.output';
+    open my $makefile_output_fh, '>', $makefile_output_filename
+        or die 'failed to write to '.$makefile_output_filename.' - '.$!;
+    
+    # run make and note down failure or success
+    if (run
+            [ 'make', @make_args ],
+            \undef,
+            $makefile_output_fh,
+            $makefile_output_fh,
+        ) {
+        unlink('failed');
+    }
+    else {
+        write_file('failed', $?);
+    }
+    
+    close($makefile_output_fh);
 }
 
 1;
